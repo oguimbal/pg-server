@@ -11,6 +11,12 @@
  pg-server is a postgres server emulator allowing you to <b>proxy, honeypot, filter, or emulate</b> an actual Postgres server
  </h3>
 
+
+ <h4 align="center">
+ Best used with
+  <a href="https://github.com/oguimbal/pg-mem">pg-mem</a> and/or <a href="https://github.com/oguimbal/pgsql-ast-parser">pgsql-ast-parser</a> 😉
+ </h4>
+
 # Table of contents
 
 - [🔌 Usage: As a proxy](#-usage-as-a-proxy)

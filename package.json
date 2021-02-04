@@ -1,7 +1,19 @@
 {
   "name": "pg-server",
-  "version": "0.1.3",
-  "description": "Postgres server emulation or proxying",
+  "version": "0.1.4",
+  "description": "Postgres DB server emulator, proxy or honeypot",
+  "keywords": [
+    "postgres",
+    "postgresql",
+    "database",
+    "db",
+    "emulator",
+    "server",
+    "honeypot",
+    "proxy",
+    "pg-mem",
+    "pgsql-ast-parser"
+  ],
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --inspect=4321 --respawn --transpile-only _test.ts",
