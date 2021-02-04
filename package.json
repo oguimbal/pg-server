@@ -1,0 +1,27 @@
+{
+  "name": "pg-server",
+  "version": "0.1.3",
+  "description": "Postgres server emulation or proxying",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node-dev --inspect=4321 --respawn --transpile-only _test.ts",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "build": "tsc --project tsconfig.json",
+    "release": "git diff --exit-code && npm run build && cp package.json lib/package.json && npm publish lib"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^14.14.22",
+    "@types/pg": "^7.14.9",
+    "pg": "^8.5.1",
+    "pgsql-ast-parser": "^4.1.8",
+    "source-map-support": "^0.5.19",
+    "ts-node": "^9.1.1",
+    "ts-node-dev": "^1.1.1",
+    "typescript": "^4.1.3"
+  },
+  "dependencies": {
+    "pg-protocol": "^1.4.0"
+  }
+}
