@@ -25,6 +25,21 @@ export interface InterceptedQuery {
 }
 type CommandOrError = string | { error: string };
 
+
+
+export interface ISimpleProxySession {
+    /** Subscribe to new connections */
+    onConnect?(socket: Socket): any;
+
+    /** Handle inbound requests from connecting clients */
+    onQuery(query: string): CommandOrError | Promise<CommandOrError>;
+}
+
+export interface SimpleProxyCtor {
+    new(): ISimpleProxySession;
+}
+
+
 /**
  * Create a db proxying server which only gives you a chance to intercepts/modify queries on the fly.
  *
@@ -32,23 +47,12 @@ type CommandOrError = string | { error: string };
  *
  * Must call .listen() to start listening.
  */
-export function createSimpleProxy(settings: {
-    /** The DB to proxy */
-    db: DbConnect;
-
-    /** Subscribe to new connections */
-    onConnect?: (socket: Socket) => any;
-
-    /** Handle inbound requests from connecting clients */
-    onCommand: (query: string, socket: Socket) => CommandOrError | Promise<CommandOrError>,
-}) {
-    return createAdvancedProxy({
-        db: settings.db,
-        onConnect: settings.onConnect,
-        onCommand: async ({ command, getRawData }, { client, db }) => {
+export function createSimpleProxy(db: DbConnect, ctor: SimpleProxyCtor) {
+    return createAdvancedProxy(db, class extends ctor implements IAdvancedProxySession {
+        async onCommand({ command, getRawData }: DbRawCommand, { client, db }: ProxyParties) {
             if (command.type === CommandCode.parse || command.type === CommandCode.query) {
                 try {
-                    const _transformed = settings.onCommand(command.query, client.socket) ?? command.query;
+                    const _transformed = this.onQuery(command.query) ?? command.query;
                     let transformed: CommandOrError;
                     if (isThenable(_transformed)) {
                         getRawData(); // force get raw data before awaiting
@@ -78,15 +82,8 @@ export function createSimpleProxy(settings: {
     })
 }
 
-/**
- * Create a db proxying server.
- *
- * Must call .listen() to start listening.
- */
-export function createAdvancedProxy(settings: {
-    /** The DB to proxy */
-    db: DbConnect;
 
+export interface IAdvancedProxySession {
     /** Subscribe to new connections */
     onConnect?: (socket: Socket) => any;
 
@@ -95,38 +92,50 @@ export function createAdvancedProxy(settings: {
 
     /** Handle responses from the db */
     onResult?: (result: DbRawResponse, parties: ProxyParties) => any
-}): Server {
+}
+
+export interface AdvancedProxyCtor {
+    new(): IAdvancedProxySession;
+}
+/**
+ * Create a db proxying server.
+ *
+ * Must call .listen() to start listening.
+ */
+export function createAdvancedProxy(db: DbConnect, ctor: AdvancedProxyCtor): Server {
     return createServer(socket => {
 
-        settings.onConnect?.(socket);
+        const instance = new ctor();
 
-        const db = typeof settings.db === 'function'
-            ? settings.db()
-            : connect(settings.db.port, settings.db.host);
+        instance.onConnect?.(socket);
+
+        const dbSock = typeof db === 'function'
+            ? db()
+            : connect(db.port, db.host);
 
         let parties: ProxyParties;
 
         // === when receiving a command from client...
         const { writer } = bindSocket(socket, command => {
-            if (settings.onCommand) {
+            if (instance.onCommand) {
                 // ... either ask the proxy what to do
-                settings.onCommand(command, parties);
+                instance.onCommand(command, parties);
             } else {
                 // ... or just forward it
-                db.write(command.getRawData());
+                dbSock.write(command.getRawData());
             }
         });
 
         // === when receiving response from db...
         const parser = new DbResponseParser();
-        db.on('data', buffer => {
-            if (settings.onResult) {
+        dbSock.on('data', buffer => {
+            if (instance.onResult) {
                 // ... either ask the proxy what to do
                 parser.parse(buffer, c => {
                     if (isDebug) {
                         console.log('   🕋 db: ', c);
                     }
-                    settings.onResult!(c, parties);
+                    instance.onResult!(c, parties);
                 })
             } else {
                 // ... or just forward it
@@ -134,11 +143,11 @@ export function createAdvancedProxy(settings: {
             }
         });
 
-        parties = { client: writer, db: new CommandWriter(db) };
+        parties = { client: writer, db: new CommandWriter(dbSock) };
 
         // === bind errors
-        db.on('error', e => writer.error(util.inspect(e)));
-        db.on('close', () => socket.destroy());
-        db.setNoDelay(true);
+        dbSock.on('error', e => writer.error(util.inspect(e)));
+        dbSock.on('close', () => socket.destroy());
+        dbSock.setNoDelay(true);
     });
 }

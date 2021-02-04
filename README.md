@@ -2,8 +2,8 @@
 <p align="center">
   <a href="https://npmjs.org/package/pg-server"><img src="http://img.shields.io/npm/v/pg-server.svg"></a>
   <a href="https://npmjs.org/package/pg-server"><img src="https://img.shields.io/npm/dm/pg-server.svg"></a>
-  <a href="https://david-dm.org/oguimbal/pg-server"><img src="https://david-dm.org/oguimbal/pg-server.svg"></a>
-  <img src="https://github.com/oguimbal/pg-server/workflows/CI/badge.svg">
+  <!-- <a href="https://david-dm.org/oguimbal/pg-server"><img src="https://david-dm.org/oguimbal/pg-server.svg"></a>
+  <img src="https://github.com/oguimbal/pg-server/workflows/CI/badge.svg"> -->
 </p>
 
 
@@ -32,26 +32,30 @@ Let's say that you want to proxy a real postgres server instance, and let filter
 pg-server contains a small utility that abstracts away most of the heavy lifting and which lets you listen/intercept requests.
 
 ```typescript
-import {createSimpleProxy} from 'pg-server';
+import {createSimpleProxy, ISimpleProxySession} from 'pg-server';
 
-const server = createSimpleProxy({
+
+const server = createSimpleProxy(
     // The DB that must be proxied
-    db: { port: 5432, host: 'localhost' },
+    { port: 5432, host: 'localhost' }
 
-    // An optional handler which will be called
-    //  on each new connection
-    onConnect: socket => {
-        console.log('👤 Client connected, IP: ', socket.remoteAddress);
-    },
+    // A new session context
+    //  (one will be constructed for each connection)
+    , class implements ISimpleProxySession {
+        // An optional handler which will be called
+        //  on each new connection
+        onConnect(socket: Socket) {
+            console.log('👤 Client connected, IP: ', socket.remoteAddress);
+        }
+        // A handler which will be called for each sql query
+        onQuery(query: string) {
 
-    // A handler which will be called for each sql query
-    onCommand: (query, socket) => {
-        // Ok, proceed to this query, unmodified.
-        // You could also choose to modify the query.
-        return query;
-        // ... or return an error
-        return { error: 'Forbidden !' };
-    },
+            // Ok, proceed to this query, unmodified.
+            // You could also choose to modify the query.
+            return query;
+            // ... or return an error
+            return { error: 'Forbidden !' };
+        }
 });
 
 
@@ -67,42 +71,42 @@ You can use [pgsql-ast-parser](https://github.com/oguimbal/pgsql-ast-parser), an
 For instance, to only allow simple select requests without joins on a given set of tables, you could do something like that:
 
 ```typescript
-import {createSimpleProxy} from 'pg-server';
+import {createSimpleProxy, ISimpleProxySession} from 'pg-server';
 import {parse, astVisitor} from 'pgsql-ast-parser';
 
-const server = createSimpleProxy({
-    db: { port: 5432, host: 'localhost' },
-    onConnect: socket => {
-        console.log('👤 Client connected, IP: ', socket.remoteAddress);
-    },
-    onCommand: query => {
 
-        // parse the query & check it has only one query
-        const parsed = parse(query);
-        if (parsed.length !== 1) {
-            return { error: 'Only single queries accepted' };
+const server = createSimpleProxy(
+    // The DB that must be proxied
+    { port: 5432, host: 'localhost' }
+    , class implements ISimpleProxySession {
+        onQuery(query: string) {
+
+            // parse the query & check it has only one query
+            const parsed = parse(query);
+            if (parsed.length !== 1) {
+                return { error: 'Only single queries accepted' };
+            }
+
+            // check that it is a select
+            const [first] = parsed
+            if (first.type !== 'select') {
+                return { error: 'Only SELECT queries accepted' };
+            }
+
+            // check that it selects data from "some_public_table" only
+            let authorized = true;
+            astVisitor(m => ({
+                tableRef: r => authorized = authorized
+                    && !r.schema
+                    && r.name === 'some_public_table',
+            })).statement(first);
+            if (!authorized) {
+                return { error: 'Cannot select data from tables. Only expressions allowed.' };
+            }
+
+            // ok, proceed to this query, unmodified.
+            return query;
         }
-
-        // check that it is a select
-        const [first] = parsed
-        if (first.type !== 'select') {
-            return { error: 'Only SELECT queries accepted' };
-        }
-
-        // check that it selects data from "some_public_table" only
-        let authorized = true;
-        astVisitor(m => ({
-            tableRef: r => authorized = authorized
-                && !r.schema
-                && r.name === 'some_public_table',
-        })).statement(first);
-        if (!authorized) {
-            return { error: 'Cannot select data from tables. Only expressions allowed.' };
-        }
-
-        // ok, proceed to this query, unmodified.
-        return query;
-    },
 });
 
 server.listen(1234, '127.0.0.1');
@@ -141,19 +145,17 @@ TODO
 Example:
 
 ```typescript
-const server = createAdvancedServer({
+const server = createAdvancedServer(class implements IAdvanceServerSession {
     // An optional handler which will be called
     //  on each new connection
-    onConnect: socket => {
+    onConnect(socket: Socket) {
         console.log('👤 Client connected, IP: ', socket.remoteAddress);
-    },
+    }
 
     // A handler which will be called on each received instuction.
-    onCommand: ({ command }, response) => {
-
+    onCommand({ command }: DbRawCommand, response: IResponseWriter) {
         // use the "response" writer
         // to react to the "command"  argument
-
     }
 })
 

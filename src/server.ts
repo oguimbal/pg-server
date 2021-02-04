@@ -15,19 +15,28 @@ export type DbRawCommand = {
 export type DbCommandHandler = (command: DbRawCommand, response: IResponseWriter) => void;
 
 
+export interface IAdvanceServerSession {
+    /** Subscribe to new connections */
+    onConnect?(socket: Socket): any | void;
+
+    /** Handle inbound requests from connecting clients. Must not throw any error */
+    onCommand(command: DbRawCommand, response: IResponseWriter): void;
+}
+
+
+export interface AdvanceServerCtor {
+    new(): IAdvanceServerSession;
+}
+
 /**
  *
  * @param settings
  */
-export function createAdvancedServer(settings: {
-    /** Subscribe to new connections */
-    onConnect?: (socket: Socket) => any;
-
-    /** Handle inbound requests from connecting clients. Must not throw any error */
-    onCommand: DbCommandHandler;
-}) {
+export function createAdvancedServer(ctor: AdvanceServerCtor) {
     return createServer(function (socket) {
-        bindSocket(socket, settings.onCommand);
+        const session = new ctor();
+        session.onConnect?.(socket);
+        bindSocket(socket, session.onCommand.bind(session));
     });
 }
 
