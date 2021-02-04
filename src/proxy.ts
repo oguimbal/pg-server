@@ -1,7 +1,7 @@
 import { connect, createServer, Server, Socket } from 'net';
 import { bindSocket, DbRawCommand } from './server';
 import { CommandCode, IProxiedServer } from './protocol/commands';
-import { IResponseWriter } from './protocol/responses';
+import { IResponseWriter, messageToStr } from './protocol/responses';
 import util from 'util';
 import { isDebug, isThenable } from './utils';
 import { DbRawResponse, DbResponseParser } from './protocol/response-parser';
@@ -133,7 +133,7 @@ export function createAdvancedProxy(db: DbConnect, ctor: AdvancedProxyCtor): Ser
                 // ... either ask the proxy what to do
                 parser.parse(buffer, c => {
                     if (isDebug) {
-                        console.log('   🕋 db: ', c);
+                        console.log('   🕋 db ', messageToStr(c.response.type), c.response);
                     }
                     instance.onResult!(c, parties);
                 })

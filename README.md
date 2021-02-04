@@ -101,7 +101,7 @@ const server = createSimpleProxy(
                     && r.name === 'some_public_table',
             })).statement(first);
             if (!authorized) {
-                return { error: 'Cannot select data from tables. Only expressions allowed.' };
+                return { error: `You're note supposed to be here :/` };
             }
 
             // ok, proceed to this query, unmodified.
@@ -177,3 +177,9 @@ TODO
 - [simple & extended queries](https://blog.hackeriet.no/Simple-and-Extended-postgresql-queries/) A very short explanation about query modes
 - [postgres on the wire](https://www.pgcon.org/2014/schedule/attachments/330_postgres-for-the-wire.pdf)  55 slides about the postgres protocol
 - [Protocol flow](https://www.postgresql.org/docs/13/protocol-flow.html) The official procol explanation
+
+
+# Todo
+
+- SSL support (protocol version 1234.5679 on init)
+- Simplified interface

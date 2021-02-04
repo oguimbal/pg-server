@@ -11,7 +11,9 @@ export class ResponseWriter implements IResponseWriter {
     private flush(code: ResponseCode) {
         const buf = this.writer.flush(code);
         if (isDebug) {
-            console.log(`  ✈ `, messageToStr(code));
+            if (code !== ResponseCode.ErrorMessage) {
+                console.log(`  ✈ `, messageToStr(code));
+            }
         }
         this.socket.write(buf);
     }
@@ -147,6 +149,9 @@ export class ResponseWriter implements IResponseWriter {
         error = typeof error === 'string'
             ? { message: error }
             : error;
+        if (isDebug) {
+            console.warn(`  ✈⚠ `, error.message);
+        }
         // https://www.postgresql.org/docs/12/protocol-error-fields.html
         for (const [k, v] of Object.entries(error)) {
             const mk = noticeMapping[k];

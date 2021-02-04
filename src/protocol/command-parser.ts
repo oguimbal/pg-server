@@ -185,9 +185,17 @@ export class CommandParser {
 
     valuesRead(): any[] {
         const len = this.reader.int16();
+        const types: ParamType[] = Array(len);
+        for (let i = 0; i < len; i++) {
+            types[i] = this.reader.int16();
+        }
+        const lenAgain = this.reader.int16();
+        if(lenAgain !== len) {
+            throw new Error('Types & values count not matching');
+        }
         const ret = Array(len);
         for (let i = 0; i < len; i++) {
-            const type: ParamType = this.reader.int16();
+            const type: ParamType = types[i];
             switch (type) {
                 case ParamType.STRING:
                     const strLen = this.reader.int32();
@@ -258,7 +266,6 @@ export class CommandParser {
     private parseBind(): DbCommand {
         const portal = this.reader.cstring();
         const statement = this.reader.cstring();
-        const lenAgain = this.reader.int16(); /// ?? see serializer.ts:157
         const values = this.valuesRead();
         const binary = this.reader.int16() === ParamType.BINARY;
         return {
