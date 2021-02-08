@@ -19,7 +19,7 @@
     "dev": "ts-node-dev --inspect=4321 --respawn --transpile-only _test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "build": "tsc --project tsconfig.json",
-    "release": "git diff --exit-code && npm run build && cp readme.md lib/readme.md && cp package.json lib/package.json && npm publish lib"
+    "release": "git diff --exit-code && npm run build && cp README.md lib/readme.md && cp package.json lib/package.json && npm publish lib"
   },
   "author": "",
   "license": "ISC",
